@@ -10,7 +10,7 @@ def list_sensors():
         return jsonify(SENSORS), 200
     except Exception as e:
         print("Error list_sensors", e)
-        return jsonify({'error': 'somthing went wrong'})
+        return jsonify({'error': 'somthing went wrong'}), 500
 
 
 @sensor.route('/<sensor_name>', methods=['GET'])
@@ -23,7 +23,7 @@ def get_specific_sensor(sensor_name):
 
     except Exception as e:
         print("Error get_specific_sensor", e)
-        return jsonify({'error': 'somthing went wrong'})
+        return jsonify({'error': 'somthing went wrong'}), 500
 
 
 @sensor.route('/<sensor_name>', methods=['POST'])
@@ -40,5 +40,5 @@ def post_specific_sensor(sensor_name):
 
     except Exception as e:
         print("Error post_specific_sensor", e)
-        return jsonify({'error': 'somthing went wrong'})
+        return jsonify({'error': 'somthing went wrong'}), 500
 
