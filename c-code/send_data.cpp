@@ -2,11 +2,12 @@
 #include <curl/curl.h>
 #include <pthread.h>
 #include <string.h>
-#include "sensor.h"
 #include <time.h>
 #include <stdio.h>
 #include <vector>
 #include <memory>
+
+#include "sensor.cpp"
 
 const char *API_URL = "your_api_url_here";
 

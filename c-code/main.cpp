@@ -1,6 +1,5 @@
 #include <wiringPiI2C.h>
 #include <stdlib.h>
-#include <stdio.h>
 #include <wiringPi.h>
 #include <time.h>
 #include <stdint.h>
@@ -11,7 +10,7 @@
 #include <memory>
 
 #include "send_data.cpp"
-#include "sensor.h"
+#include "sensor.cpp"
 
 #define Device_Address 0x68 /*Device Address/Identifier for MPU6050*/
 
