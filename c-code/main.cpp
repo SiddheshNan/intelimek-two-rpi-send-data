@@ -61,14 +61,15 @@ int main()
     float Gyro_x, Gyro_y, Gyro_z;
     float Ax = 0, Ay = 0, Az = 0;
     float Gx = 0, Gy = 0, Gz = 0;
+    
     fd = wiringPiI2CSetup(Device_Address); /*Initializes I2C with device Address*/
     MPU6050_Init();                        /* Initializes MPU6050 */
 
     time_t start_time = time(NULL);
     time_t current_time;
 
-    const int duration = 10; /*Duration at which data is sent to the server*/
-    const int delay_ms = 5; /* Delay between each reading of MPU6050 */
+    const int duration = 2; /* Second Duration at which data is sent to the server*/
+    const int delay_ms = 5; /* MilliSecond Delay between each reading of MPU6050 */
 
     std::vector<SensorData> sensorDataVector;
 
@@ -92,6 +93,7 @@ int main()
         Gy = Gyro_y / 131;
         Gz = Gyro_z / 131;
 
+        current_time = time(NULL);
 
         struct SensorData data;
         data.Gx = Gx;
@@ -100,32 +102,37 @@ int main()
         data.Ax = Ax;
         data.Ay = Ay;
         data.Az = Az;
+        data.timestamp = current_time;
+        
+        
+        sensorDataVector.push_back(data);
 
 
         // Print sensor values
-        // printf("\n Gx=%.3f °/s\tGy=%.3f °/s\tGz=%.3f °/s\tAx=%.3f g\tAy=%.3f g\tAz=%.3f g\n", Gx, Gy, Gz, Ax, Ay, Az);
+       // printf("\n Gx=%.3f °/s\tGy=%.3f °/s\tGz=%.3f °/s\tAx=%.3f g\tAy=%.3f g\tAz=%.3f g\n", Gx, Gy, Gz, Ax, Ay, Az);
         
-
-        // Check if the duration has elapsed
-        current_time = time(NULL);
+        
 
         if (current_time - start_time >= duration)
         {   
             start_time = current_time;
             printf("Sending Data! | Sample count: %d\n", sensorDataVector.size());
-            std::create_unique<std::vector<SensorData>> dataCopy = std::make_unique<std::vector<SensorData>>(sensorDataVector);
+            
+            auto dataCopy = std::unique_ptr<std::vector<SensorData>>(new std::vector<SensorData>());
+            
+            //std::create_unique<std::vector<SensorData>> dataCopy = std::make_unique<std::vector<SensorData>>(); // C++14 feature : not available here on raspberry-pi
+            
             sensorDataVector.clear();
 
             pthread_t thread;
             pthread_create(&thread, NULL, (void *(*)(void *))sendSensorData, &dataCopy);
-            // pthread_join(thread, NULL);
+           
         }
 
-        // Delay for 500 milliseconds
+        
         delay(delay_ms);
     }
 
-    printf("Delay: %d | Sample count in 1 sec : %d \n", delay_ms, sample_count / 10);
 
     return 0;
 }
