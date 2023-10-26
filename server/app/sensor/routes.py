@@ -25,7 +25,7 @@ def get_specific_sensor(sensor_name):
         if time_frame:
             try:
                 end_time = datetime.now()
-                start_time = end_time - timedelta(hours=int(time_frame))
+                start_time = end_time - timedelta(minutes=int(time_frame))
                 query = db.session.query(Sensor).filter(Sensor.timestamp >= start_time,
                                                         Sensor.timestamp <= end_time,
                                                         Sensor.name == sensor_name)
@@ -75,5 +75,6 @@ def ws_push_data(ws):
                 ws.send('ok')
 
     except Exception as e:
+        ws.send(f"Error! {e} ")
         print("Error push_data_ws", e)
         return jsonify({'error': 'somthing went wrong'}), 500
