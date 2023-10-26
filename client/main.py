@@ -1,9 +1,12 @@
-import requests
-import random
+import json
 import time
-from smbus2 import SMBus
+from datetime import datetime
 from threading import Thread
 
+from smbus2 import SMBus
+from websocket import create_connection
+
+ws_url = "ws://192.168.42.10:8888/api/sensor/MPU6050/ws_push_data"
 
 # some MPU6050 Registers and their Address
 PWR_MGMT_1 = 0x6B
@@ -14,9 +17,11 @@ INT_ENABLE = 0x38
 ACCEL_XOUT_H = 0x3B
 ACCEL_YOUT_H = 0x3D
 ACCEL_ZOUT_H = 0x3F
-GYRO_XOUT_H = 0x43
-GYRO_YOUT_H = 0x45
-GYRO_ZOUT_H = 0x47
+
+
+# GYRO_XOUT_H = 0x43
+# GYRO_YOUT_H = 0x45
+# GYRO_ZOUT_H = 0x47
 
 
 def MPU_Init():
@@ -51,16 +56,18 @@ def read_raw_data(addr):
     return value
 
 
-def send_data(value):
-    BASE_URL = "http://192.168.42.10:8888/api/sensor"
-    SENSOR_NAME = "MPU6050"
-    response = requests.post(f"{BASE_URL}/{SENSOR_NAME}", json={"value": value})
+ws = create_connection(ws_url)
 
-    if response.status_code == 200:
-        print(time.time(), f"Data Sent!")
-    else:
-        print(f"Data Sent Failed!")
-        print('Response:', response.status_code, response.text)
+# def send_data(value): ## REST API Call
+#     BASE_URL = "http://192.168.42.10:8888/api/sensor"
+#     SENSOR_NAME = "MPU6050"
+#     response = requests.post(f"{BASE_URL}/{SENSOR_NAME}", json={"value": value})
+#
+#     if response.status_code == 200:
+#         print(time.time(), f"Data Sent!")
+#     else:
+#         print(f"Data Sent Failed!")
+#         print('Response:', response.status_code, response.text)
 
 
 bus = SMBus(1)  # or bus = smbus.SMBus(0) for older version boards
@@ -72,6 +79,8 @@ print("Reading Data of Gyroscope and Accelerometer")
 
 delay = 0.02
 
+duration_between_send = 5
+
 values = []
 
 start_time = time.time()
@@ -82,14 +91,14 @@ def send_data_thread():
         if len(values):
             data_to_send = values.copy()  # Copy the sensor data to send
             values.clear()  # Clear the data list
-            Thread(target=send_data, args=(data_to_send,), daemon=True).start()
+            # Thread(target=send_data, args=(data_to_send,), daemon=True).start() ## for REST API call
+            json_data = json.dumps(data_to_send)
+            ws.send(json_data)
 
-        time.sleep(1)
+        time.sleep(duration_between_send)
 
 
-send_thread = Thread(target=send_data_thread)
-send_thread.daemon = True
-send_thread.start()
+Thread(target=send_data_thread, daemon=True,).start()
 
 while True:
     # Read Accelerometer raw value
@@ -98,38 +107,34 @@ while True:
     acc_z = read_raw_data(ACCEL_ZOUT_H)
 
     # Read Gyroscope raw value
-    gyro_x = read_raw_data(GYRO_XOUT_H)
-    gyro_y = read_raw_data(GYRO_YOUT_H)
-    gyro_z = read_raw_data(GYRO_ZOUT_H)
+    # gyro_x = read_raw_data(GYRO_XOUT_H)
+    # gyro_y = read_raw_data(GYRO_YOUT_H)
+    # gyro_z = read_raw_data(GYRO_ZOUT_H)
 
     # Full scale range +/- 250 degree/C as per sensitivity scale factor
     Ax = acc_x / 16384.0
     Ay = acc_y / 16384.0
     Az = acc_z / 16384.0
 
-    Gx = gyro_x / 131.0
-    Gy = gyro_y / 131.0
-    Gz = gyro_z / 131.0
+    # Gx = gyro_x / 131.0
+    # Gy = gyro_y / 131.0
+    # Gz = gyro_z / 131.0
 
-    print(time.time(), "Gx=%.2f" % Gx, u'\u00b0' + "/s", "\tGy=%.2f" % Gy, u'\u00b0' + "/s", "\tGz=%.2f" % Gz,
-          u'\u00b0' + "/s", "\tAx=%.2f g" % Ax, "\tAy=%.2f g" % Ay, "\tAz=%.2f g" % Az)
+    current_timestamp = int(datetime.utcnow().timestamp() * 1e3)
+
+    print(current_timestamp,
+          # "Gx=%.2f" % Gx, u'\u00b0' + "/s", "\tGy=%.2f" % Gy, u'\u00b0' + "/s", "\tGz=%.2f" % Gz,
+          # u'\u00b0' + "/s",
+          "\tAx=%.2f g" % Ax, "\tAy=%.2f g" % Ay, "\tAz=%.2f g" % Az)
 
     values.append({
-        'Gx': Gx,
-        'Gy': Gy,
-        'Gz': Gz,
+        # 'Gx': Gx,
+        # 'Gy': Gy,
+        # 'Gz': Gz,
         'Ax': Ax,
         'Ay': Ay,
-        'Az': Az
+        'Az': Az,
+        'ts': current_timestamp
     })
 
     time.sleep(delay)
-
-    # current_time = time.time()
-    #
-    # if current_time - start_time >= interval:
-    #     start_time = current_time
-    #     print(f"Sending Values.. | Delay: {delay} | Sample count in 1 sec : {len(values) / 10}")
-    #     values_cpy = values.copy()
-    #     Thread(target=send_data, args=(values_cpy,), daemon=True)
-    #     values.clear()
