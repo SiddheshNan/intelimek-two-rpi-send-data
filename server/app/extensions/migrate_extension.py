@@ -1,2 +1,2 @@
-from flask_migrate import Migrate
-migrate = Migrate()
+# from flask_migrate import Migrate
+# migrate = Migrate()

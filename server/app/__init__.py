@@ -3,7 +3,7 @@ from flask_cors import CORS
 import click
 from werkzeug.exceptions import HTTPException
 from app.utils import http_exception_handler
-from app.extensions import db, migrate
+from app.extensions import mongo
 
 
 def create_app(app_configuration):
@@ -11,8 +11,10 @@ def create_app(app_configuration):
     app.config.from_object(app_configuration)
 
     # Initialize Flask extensions here
-    db.init_app(app)
-    migrate.init_app(app, db)
+    # db.init_app(app)
+    # migrate.init_app(app, db)
+
+    mongo.init_app(app)
     CORS(app)
 
     # Register blueprints here
@@ -39,7 +41,7 @@ def create_app(app_configuration):
         click.echo(column_format.format(rule.rule, rule.endpoint, methods))
 
     # create the db tables
-    with app.app_context():
-        db.create_all()
+    # with app.app_context():
+    #     db.create_all()
 
     return app

@@ -6,7 +6,7 @@ from threading import Thread
 from smbus2 import SMBus
 from websocket import create_connection
 
-ws_url = "ws://192.168.42.10:8888/api/sensor/MPU6050/ws_push_data"
+ws_url = "ws://192.168.208.3:8888/api/sensor/ws_push_data"
 
 # some MPU6050 Registers and their Address
 PWR_MGMT_1 = 0x6B
@@ -51,7 +51,7 @@ def read_raw_data(addr):
 
     # to get signed value from mpu6050
     if value > 32768:
-        value = value - 65536
+        value -= 65536
 
     return value
 
@@ -92,13 +92,12 @@ def send_data_thread():
             data_to_send = values.copy()  # Copy the sensor data to send
             values.clear()  # Clear the data list
             # Thread(target=send_data, args=(data_to_send,), daemon=True).start() ## for REST API call
-            json_data = json.dumps(data_to_send)
-            ws.send(json_data)
+            ws.send(json.dumps({"name": "MPU6050", "values": data_to_send}))
 
         time.sleep(duration_between_send)
 
 
-Thread(target=send_data_thread, daemon=True,).start()
+Thread(target=send_data_thread, daemon=True, ).start()
 
 while True:
     # Read Accelerometer raw value

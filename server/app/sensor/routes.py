@@ -1,17 +1,26 @@
 import json
-from datetime import datetime, timedelta
+import time
+
 from flask import jsonify, request
+
 from app.extensions.db_extension import db
 from app.sensor import sensor, sock
-from app.sensor.models import Sensor
+
+'''
+The mongodb schema is as follows:
+{
+    "name": "MPU_8050",
+    "values": "[1,2,3,4,5]",
+    "ts": 1234567890
+}
+'''
 
 
 @sensor.route('/', methods=['GET'])
 def list_sensors():
     try:
-        sensors = db.session.query(Sensor.name).distinct().all()
-        unique_sensor_names = [name for (name,) in sensors]
-        return jsonify(unique_sensor_names), 200
+        distinct_sensors = list(db.sensors.distinct('name'))
+        return jsonify(distinct_sensors), 200
 
     except Exception as e:
         print("Error list_sensors", e)
@@ -21,23 +30,21 @@ def list_sensors():
 @sensor.route('/<sensor_name>', methods=['GET'])
 def get_specific_sensor(sensor_name):
     try:
-        time_frame = request.args.get('time_frame')
-        if time_frame:
+        time_frame_minute = request.args.get('time_frame_minute')
+        if time_frame_minute:
             try:
-                end_time = datetime.now()
-                start_time = end_time - timedelta(minutes=int(time_frame))
-                query = db.session.query(Sensor).filter(Sensor.timestamp >= start_time,
-                                                        Sensor.timestamp <= end_time,
-                                                        Sensor.name == sensor_name)
+                end_time = int(time.time())
+                start_time = end_time - (int(time_frame_minute) * 60 * 1000)
+                values = db.sensors.find(
+                    {"name": sensor_name, "ts": {"$and": [{"$lt": end_time}, {"$gt": start_time}]}}).sort('ts')
             except ValueError:
                 return jsonify({'error': 'Invalid time_frame format'}), 400
         else:
             # If time_frame is not specified, return the last added values
             limit = int(request.args.get('limit', 100))
-            query = db.session.query(Sensor).filter(Sensor.name == sensor_name).order_by(Sensor.timestamp.desc()).limit(limit)
+            values = db.sensors.find({"name": sensor_name}).sort('ts').limit(limit)
 
-        sensor_values = [_sensor.serialize() for _sensor in query.all()]
-        return jsonify(sensor_values), 200
+        return jsonify([{'name': item['name'], 'values': item['values']} for item in list(values)]), 200
 
     except Exception as e:
         print("Error get_specific_sensor", e)
@@ -48,11 +55,13 @@ def get_specific_sensor(sensor_name):
 def post_specific_sensor(sensor_name):
     try:
         data = request.get_json()
-        values = data.get('values', None)
-        new_sensor = Sensor(name=sensor_name, values=values)
-        db.session.add(new_sensor)
-        db.session.commit()
-
+        sensor_values = data.get('values', None)
+        sensor_doc = {
+            'name': sensor_name,
+            'values': sensor_values,
+            'ts': int(time.time()),
+        }
+        db.sensors.insert_one(sensor_doc)
         return jsonify({"msg": "ok"}), 200
 
     except Exception as e:
@@ -69,10 +78,12 @@ def ws_push_data(ws):
             if "name" in data and "values" in data:
                 name = str(data['name'])
                 values = str(data['values'])
-                new_sensor_values = Sensor(name=name, values=values)
-                db.session.add(new_sensor_values)
-                db.session.commit()
-                ws.send('ok')
+                db.sensors.insert_one({
+                    'name': name,
+                    'values': values,
+                    'ts': int(time.time()),
+                })
+                # ws.send('ok')
 
     except Exception as e:
         ws.send(f"Error! {e} ")
