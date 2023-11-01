@@ -1,12 +1,11 @@
 import numpy as np
 
 
-def conv_time_secs(ts_sec_list):  # Note: the list is in epoch timestamp (in second) Not Datetime
-    # ts_secs = [(int(time[11:13]) * 3600) + (int(time[14:16]) * 60) + (int(time[17:19])) + (int(time[20:]) * 0.000001)
-    #            for time in time_series_data_list]
-    time_diff = np.diff(ts_sec_list)
+def conv_time_secs(time_series_data_list):
+    ts_secs = [(int(time[11:13])*3600) + (int(time[14:16])*60) + (int(time[17:19])) + (int(time[20:])*0.000001) for time in time_series_data_list]
+    time_diff = np.diff(ts_secs)
     time_step = np.mean(time_diff)
-    data_freq = 1 / time_step
+    data_freq = 1/time_step
     print("Data Frequency Rate: ", data_freq)
     return data_freq, time_step
 

@@ -1,5 +1,6 @@
 import json
 import time
+from datetime import datetime
 
 from flask import jsonify, request
 
@@ -16,25 +17,24 @@ The mongodb schema is as follows:
             "Ax": 10,
             "Ay": 9,
             "Az": 11,
-            "ts": 1698823310 # this is epoch timestamp (in seconds) when the sensor is read
+            "ts": '2023-11-01 13:20:43.836119'
         },
         {
             "Ax": 11,
             "Ay": 22,
             "Az": 11,
-            "ts": 1698823312
+            "ts":'2023-11-01 13:20:43.836119'
         },
         {
             "Ax": 12,
             "Ay": 14,
             "Az": 13,
-            "ts": 1698823514
+            "ts": '2023-11-01 13:20:43.836119'
         }
     ],
-    "ts": 1234567890 # this is epoch timestamp (in seconds) at when data is pushed to db
+    "ts": 2023-11-01 13:20:43.836119 # this is Datetime object at when data is pushed to db
 }
 '''
-
 
 Ax = []
 Ay = []
@@ -44,30 +44,26 @@ Ts = []
 
 def on_values_pushed():
     # this runs every time new values are pushed
-    # we can generate the plots here
+    # we can generate and save the plots here
     pass
 
 
-@sensor.route('/', methods=['GET'])
-def list_sensors():
-    try:
-        distinct_sensors = list(db.sensors.distinct('name'))
-        return jsonify(distinct_sensors), 200
-
-    except Exception as e:
-        print("Error list_sensors", e)
-        return jsonify({'error': 'somthing went wrong'}), 500
+@sensor.route('/values', methods=['GET'])
+def get_sensor_values():
+    return jsonify({'ax': Ax, 'ay': Ay, 'az': Az, "Ts": Ts}), 200
 
 
 @sensor.route('/fft', methods=['GET'])
 def sensor_fft():
     try:
-        # FFTs are not working, need some help here
         data_freq, time_step = conv_time_secs(Ts)
-        ax_fft = preform_fft(Ax, Ts)  # or preform_fft(Ax, time_step) ??
-        ay_fft = preform_fft(Ay, Ts)
-        az_fft = preform_fft(Az, Ts)
-        return jsonify({'ax_fft': ax_fft, 'ay_fft': ay_fft, 'az_fft': az_fft}), 200
+        print(data_freq, time_step)
+        print(Ax, Ay, Az)
+        ax_fft = preform_fft(Ax, time_step)
+        ay_fft = preform_fft(Ay, time_step)
+        az_fft = preform_fft(Az, time_step)
+        return jsonify({'ax_fft': ax_fft, 'ay_fft': ay_fft,
+                        'az_fft': az_fft, 'data_freq': data_freq}), 200
 
     except Exception as e:
         print("Error sensor_fft", e)
@@ -96,7 +92,7 @@ def ws_push_data(ws):
                 db.sensors.insert_one({
                     'name': name,
                     'values': values,
-                    'ts': int(time.time()),
+                    'ts': datetime.now(),
                 })
 
     except Exception as e:
@@ -104,8 +100,17 @@ def ws_push_data(ws):
         print("Error push_data_ws", e)
         return jsonify({'error': 'somthing went wrong'}), 500
 
-
 # extra code commented for now..
+# @sensor.route('/', methods=['GET'])
+# def list_sensors():
+#     try:
+#         distinct_sensors = list(db.sensors.distinct('name'))
+#         return jsonify(distinct_sensors), 200
+#
+#     except Exception as e:
+#         print("Error list_sensors", e)
+#         return jsonify({'error': 'somthing went wrong'}), 500
+#
 # @sensor.route('/<sensor_name>', methods=['POST'])
 # def post_specific_sensor(sensor_name):
 #     try:
@@ -121,27 +126,4 @@ def ws_push_data(ws):
 #
 #     except Exception as e:
 #         print("Error post_specific_sensor", e)
-#         return jsonify({'error': 'somthing went wrong'}), 500
-
-# @sensor.route('/<sensor_name>', methods=['GET'])
-# def get_specific_sensor(sensor_name):
-#     try:
-#         time_frame_minute = request.args.get('time_frame_minute')
-#         if time_frame_minute:
-#             try:
-#                 end_time = int(time.time())
-#                 start_time = end_time - (int(time_frame_minute) * 60 * 1000)
-#                 values = db.sensors.find(
-#                     {"name": sensor_name, "ts": {"$and": [{"$lt": end_time}, {"$gt": start_time}]}}).sort('ts')
-#             except ValueError:
-#                 return jsonify({'error': 'Invalid time_frame format'}), 400
-#         else:
-#             # If time_frame is not specified, return the last added values
-#             limit = int(request.args.get('limit', 100))
-#             values = db.sensors.find({"name": sensor_name}).sort('ts').limit(limit)
-#
-#         return jsonify([{'name': item['name'], 'values': item['values']} for item in list(values)]), 200
-#
-#     except Exception as e:
-#         print("Error get_specific_sensor", e)
 #         return jsonify({'error': 'somthing went wrong'}), 500
