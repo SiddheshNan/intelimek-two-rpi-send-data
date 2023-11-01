@@ -9,7 +9,7 @@ mongo = PyMongo()
 
 def get_db():
     """
-    This is According to Docs : https://www.mongodb.com/compatibility/setting-up-flask-with-mongodb
+    This method is According to Docs : https://www.mongodb.com/compatibility/setting-up-flask-with-mongodb
     Configuration method to return global db instance
     """
     db = getattr(g, "_database", None)
