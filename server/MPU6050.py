@@ -1,9 +1,10 @@
 import json
+import os
 from datetime import datetime
 import matplotlib.pyplot as plt
 import io
 from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
-from flask import Flask, current_app, g, jsonify, Response, render_template
+from flask import Flask, current_app, g, jsonify, Response, render_template, send_from_directory
 from flask_cors import CORS
 from flask_pymongo import PyMongo
 from flask_sock import Sock
@@ -14,6 +15,7 @@ plt.switch_backend('agg')
 
 app = Flask(__name__)
 app.config["MONGO_URI"] = "mongodb://localhost:27017/alima_rpi"
+static_path = os.path.join(os.path.dirname(__file__), 'static')
 
 sock = Sock(app)
 CORS(app)
@@ -34,7 +36,8 @@ def get_db():
 db = LocalProxy(get_db)
 
 
-def plot_graph():
+@app.route('/matplotlib_graph.png')
+def get_matplotlib_graph():
     try:
         with app.app_context():
             values_db = list(db.sensors.find())  # get values from mongodb
@@ -101,16 +104,39 @@ def plot_graph():
             output = io.BytesIO()
             FigureCanvas(plt.gcf()).print_png(output)
 
-            return output.getvalue()
+            return Response(output.getvalue(), mimetype='image/png')
 
     except Exception as e:
-        print("Error plot_graph_thread:", e)
+        print("Error get_matplotlib_graph:", e)
 
 
-@app.route('/get_plots.png')
-def get_plots_img():
-    img = plot_graph()
-    return Response(img, mimetype='image/png')
+@app.route('/graph_values')
+def get_graph_values():
+    values_db = list(db.sensors.find())  # get values from mongodb
+    ax = []
+    ay = []
+    az = []
+    Ts = []
+
+    for item in values_db:
+        ax.append(item['Ax'])
+        ay.append(item['Ay'])
+        az.append(item['Az'])
+        Ts.append(str(item['ts']))
+
+    data_freq, ts, t_s = conv_time_secs(Ts)
+    # print(data_freq, time_step, time_secs)
+
+    scaled_x, dom_x, pos_freq_x, freq_vals_x = preform_fft(ts, ax)
+    scaled_y, dom_y, pos_freq_y, freq_vals_y = preform_fft(ts, ay)
+    scaled_z, dom_z, pos_freq_z, freq_vals_z = preform_fft(ts, az)
+
+    return jsonify({'fft_x': scaled_x.tolist(), 'fft_y': scaled_y.tolist(),
+                    'fft_z': scaled_z.tolist(), 'time_secs': t_s,
+                    'pos_freq_x': pos_freq_x.tolist(), 'freq_vals_x': freq_vals_x.tolist(),
+                    'pos_freq_y': pos_freq_y.tolist(), 'freq_vals_y': freq_vals_y.tolist(),
+                    'pos_freq_z': pos_freq_z.tolist(), 'freq_vals_z': freq_vals_z.tolist()
+                    }), 200
 
 
 @sock.route('/ws_push_data')
@@ -123,7 +149,7 @@ def ws_push_data(ws):
                 name = str(data['name'])
                 values = data['values']
 
-                # insert each item as operate in mongodb
+                # insert each item into mongodb
                 db.sensors.insert_many([
                     {'name': name, 'Ax': item['Ax'], 'Ay': item['Ay'],
                      'Az': item['Az'], 'ts': datetime.fromisoformat(item['ts'])}
@@ -140,6 +166,13 @@ def ws_push_data(ws):
 @app.route('/index.html')
 def index_page():
     return render_template('index.html')
+
+
+@app.route('/<path:path>')
+def static_route(path):
+    if os.path.isdir(os.path.join(static_path, path)):
+        path = os.path.join(path, 'index.html')
+    return send_from_directory(static_path, path)
 
 
 app.run(host="0.0.0.0", port=5000, debug=True)
