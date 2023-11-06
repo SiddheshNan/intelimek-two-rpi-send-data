@@ -83,7 +83,7 @@ duration_between_send = 5
 
 values = []
 
-start_time = time.time()
+# start_time = time.time()
 
 
 def send_data_thread():
@@ -91,7 +91,6 @@ def send_data_thread():
         if len(values):
             data_to_send = values.copy()  # Copy the sensor data to send
             values.clear()  # Clear the data list
-            # Thread(target=send_data, args=(data_to_send,), daemon=True).start() ## for REST API call
             ws.send(json.dumps({"name": "MPU6050", "values": data_to_send}))
 
         time.sleep(duration_between_send)
