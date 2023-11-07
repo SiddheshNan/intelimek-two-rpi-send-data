@@ -1,14 +1,16 @@
+import io
 import json
 import os
 from datetime import datetime
+
 import matplotlib.pyplot as plt
-import io
-from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
 from flask import Flask, current_app, g, jsonify, Response, render_template, send_from_directory
 from flask_cors import CORS
 from flask_pymongo import PyMongo
 from flask_sock import Sock
+from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
 from werkzeug.local import LocalProxy
+
 from fft import preform_fft, conv_time_secs
 
 plt.switch_backend('agg')
@@ -62,7 +64,7 @@ def get_matplotlib_graph():
             scaled_x, dom_x, pos_freq_x, freq_vals_x = preform_fft(ts, ax)
             scaled_y, dom_y, pos_freq_y, freq_vals_y = preform_fft(ts, ay)
             scaled_z, dom_z, pos_freq_z, freq_vals_z = preform_fft(ts, az)
-            print('scaled_x len:', len(scaled_x), 'len t_s:', len(t_s))
+            # print('scaled_x len:', len(scaled_x), 'len t_s:', len(t_s))
 
             plt.title('Raw Data Plot')
             # X-Axis Acceleration vs Time #
@@ -112,11 +114,31 @@ def get_matplotlib_graph():
 
 @app.route('/graph_values')
 def get_graph_values():
-    values_db = list(db.sensors.find())  # get values from mongodb
+    limit = 6000
+    values_db = list(db.sensors.find().sort("ts"))  # get values from mongodb
+    ffts_db = list(db.ffts.find())
+
+    print(ffts_db)
+
+    if len(values_db) > limit:
+        values_chunk = values_db[limit:]
+    else:
+        values_chunk = values_db.copy()
+
     ax = []
     ay = []
     az = []
     Ts = []
+
+    Axc = []
+    Ayc = []
+    Azc = []
+    Tsc = []
+
+    dominant_x = []
+    dominant_y = []
+    dominant_z = []
+    Ts_freq = []
 
     for item in values_db:
         ax.append(item['Ax'])
@@ -124,19 +146,49 @@ def get_graph_values():
         az.append(item['Az'])
         Ts.append(str(item['ts']))
 
+    for item in values_chunk:
+        Axc.append(item['Ax'])
+        Ayc.append(item['Ay'])
+        Azc.append(item['Az'])
+        Tsc.append(str(item['ts']))
+
+    for item in ffts_db:
+        dominant_x.append(item['dom_freq_X'])
+        dominant_y.append(item['dom_freq_Y'])
+        dominant_z.append(item['dom_freq_Z'])
+        Ts_freq.append(item['ts_fft'])
+
     data_freq, ts, t_s = conv_time_secs(Ts)
+    data_freqc, tsc, t_sc = conv_time_secs(Tsc)
+
     # print(data_freq, time_step, time_secs)
 
     scaled_x, dom_x, pos_freq_x, freq_vals_x = preform_fft(ts, ax)
     scaled_y, dom_y, pos_freq_y, freq_vals_y = preform_fft(ts, ay)
     scaled_z, dom_z, pos_freq_z, freq_vals_z = preform_fft(ts, az)
 
+    scaled_xc, dom_xc, pos_freq_xc, freq_vals_xc = preform_fft(tsc, Axc)  # chunks
+    scaled_yc, dom_yc, pos_freq_yc, freq_vals_yc = preform_fft(tsc, Ayc)
+    scaled_zc, dom_zc, pos_freq_zc, freq_vals_zc = preform_fft(tsc, Azc)
+
+    # print({'dom_x': dominant_x, 'dom_y': dominant_y, 'dom_z': dominant_z})
+
     return jsonify({'fft_x': scaled_x.tolist(), 'fft_y': scaled_y.tolist(),
-                    'fft_z': scaled_z.tolist(), 'time_secs': t_s,
-                    'pos_freq_x': pos_freq_x.tolist(), 'freq_vals_x': freq_vals_x.tolist(),
-                    'pos_freq_y': pos_freq_y.tolist(), 'freq_vals_y': freq_vals_y.tolist(),
-                    'pos_freq_z': pos_freq_z.tolist(), 'freq_vals_z': freq_vals_z.tolist()
-                    }), 200
+                    'fft_z': scaled_z.tolist(), 't_s': t_s,
+
+                    # 'fft_xc': scaled_xc.tolist(), 'fft_yc': scaled_yc.tolist(),
+                    # 'fft_zc': scaled_zc.tolist(), 't_sc': t_sc, # no
+
+                    # 'pos_freq_x': pos_freq_x.tolist(), 'freq_vals_x': freq_vals_x.tolist(),
+                    # 'pos_freq_y': pos_freq_y.tolist(), 'freq_vals_y': freq_vals_y.tolist(),
+                    # 'pos_freq_z': pos_freq_z.tolist(), 'freq_vals_z': freq_vals_z.tolist(),
+
+                    'pos_freq_xc': pos_freq_xc.tolist(), 'freq_vals_xc': freq_vals_xc.tolist(),
+                    'pos_freq_yc': pos_freq_yc.tolist(), 'freq_vals_yc': freq_vals_yc.tolist(),
+                    'pos_freq_zc': pos_freq_zc.tolist(), 'freq_vals_zc': freq_vals_zc.tolist(),
+
+                    'dom_x': dominant_x, 'dom_y': dominant_y, 'dom_z': dominant_z, 'Ts_freq': Ts_freq
+                   }), 200
 
 
 @sock.route('/ws_push_data')
@@ -149,12 +201,22 @@ def ws_push_data(ws):
                 name = str(data['name'])
                 values = data['values']
 
+                dom_freq_X = data["dom_freq"]["dom_freq_X"]
+                dom_freq_Y = data["dom_freq"]["dom_freq_Y"]
+                dom_freq_Z = data["dom_freq"]["dom_freq_Z"]
+                ts_fft = data["dom_freq"]["ts_fft"]
+
                 # insert each item into mongodb
                 db.sensors.insert_many([
                     {'name': name, 'Ax': item['Ax'], 'Ay': item['Ay'],
-                     'Az': item['Az'], 'ts': datetime.fromisoformat(item['ts'])}
+                     'Az': item['Az'], 'ts': datetime.fromisoformat(item['ts']), 'ts_fft': ts_fft
+                     }
                     for item in values
                 ])
+
+                db.ffts.insert_one({
+                    'dom_freq_X': dom_freq_X, 'dom_freq_Y': dom_freq_Y, 'dom_freq_Z': dom_freq_Z, 'ts_fft': ts_fft
+                })
 
     except Exception as e:
         ws.send(f"Error! {e} ")

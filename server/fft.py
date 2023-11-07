@@ -15,7 +15,7 @@ def conv_time_secs(time_series_data_list):
     time_step = np.mean(time_diff)
     data_freq = 1 / time_step
     print("Data Frequency Rate: ", data_freq)
-    print("time_step: ", time_step)
+    # print("time_step: ", time_step)
     return data_freq, time_step, ts_secs
 
 
@@ -42,5 +42,5 @@ def preform_fft(time_series_list, acceleration_values_list):
     frequencies_positive = freq[pve_freq]
     fft_values_positive = fft_values[pve_freq]
     dominant_freq = frequencies_positive[np.argmax(np.abs(fft_values_positive))]
-    print("Dominant Frequency: ", dominant_freq)
+    # print("Dominant Frequency: ", dominant_freq)
     return scaled_acceleration, dominant_freq, frequencies_positive, np.abs(fft_values_positive)

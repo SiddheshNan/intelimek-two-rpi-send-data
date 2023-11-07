@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import Plot from "react-plotly.js";
+// import TableComp from "../components/TableComp";
 
 function Home() {
   const [fftX, setFftX] = useState([]);
@@ -7,31 +8,44 @@ function Home() {
   const [fftZ, setFftZ] = useState([]);
   const [timeSecs, setTimeSecs] = useState([]);
 
-  const [posFreqX, setPosFreqX] = useState([]);
-  const [posFreqY, setPosFreqY] = useState([]);
-  const [posFreqZ, setPosFreqZ] = useState([]);
+  const [posFreqXc, setPosFreqXc] = useState([]);
+  const [posFreqYc, setPosFreqYc] = useState([]);
+  const [posFreqZc, setPosFreqZc] = useState([]);
 
-  const [freqValsX, setFreqValsX] = useState([]);
-  const [freqValsY, setFreqValsY] = useState([]);
-  const [freqValsZ, setFreqValsZ] = useState([]);
+  const [freqValsXc, setFreqValsXc] = useState([]);
+  const [freqValsYc, setFreqValsYc] = useState([]);
+  const [freqValsZc, setFreqValsZc] = useState([]);
+
+  const [dom_x, set_dom_x] = useState([]);
+  const [dom_y, set_dom_y] = useState([]);
+  const [dom_z, set_dom_z] = useState([]);
+  const [Ts_freq, set_Ts_freq] = useState([]);
+
+  // const [fft_db, set_fft_db] = useState([]);
 
   const getData = () => {
-    //fetch GET to http://localhost:5000/graph_values which returns JSON
     fetch("http://localhost:5000/graph_values")
       .then((response) => response.json())
       .then((data) => {
         setFftX(data.fft_x);
         setFftY(data.fft_y);
         setFftZ(data.fft_z);
-        setTimeSecs(data.time_secs);
+        setTimeSecs(data.t_s);
 
-        setPosFreqX(data.pos_freq_x);
-        setPosFreqY(data.pos_freq_y);
-        setPosFreqZ(data.pos_freq_z);
+        setPosFreqXc(data.pos_freq_xc);
+        setPosFreqYc(data.pos_freq_yc);
+        setPosFreqZc(data.pos_freq_zc);
 
-        setFreqValsX(data.freq_vals_x);
-        setFreqValsY(data.freq_vals_y);
-        setFreqValsZ(data.freq_vals_z);
+        setFreqValsXc(data.freq_vals_xc);
+        setFreqValsYc(data.freq_vals_yc);
+        setFreqValsZc(data.freq_vals_zc);
+
+        set_dom_x(data.dom_x);
+        set_dom_y(data.dom_y);
+        set_dom_z(data.dom_z);
+        set_Ts_freq(data.Ts_freq);
+
+        // set_fft_db(data.ffts_db)
       });
   };
 
@@ -41,9 +55,9 @@ function Home() {
     const timer = setInterval(() => {
       // reload data every 5 seconds
       getData();
-    }, 5000);
+    }, 2000);
 
-    return () => clearInterval(timer);
+    return () => clearInterval(timer); // clear interval on unmount
   }, []);
 
   return (
@@ -81,9 +95,9 @@ function Home() {
             </div>
           </div>
 
-          <div className="grid gap-3 px-4 py-4 max grid-cols-2">
+          <div className="grid gap-1 px-4 py-4 max grid-cols-3">
             <Plot
-              className="shadow-md"
+              className="shadow-md "
               data={[
                 {
                   x: timeSecs,
@@ -92,9 +106,10 @@ function Home() {
                 },
               ]}
               layout={{
-                title: "X-Axis Acceleration vs Time",
+                title: "X-Axis Acc vs Time RAW",
                 xaxis: { title: "Time (Secs)" },
                 yaxis: { title: "A-X (m/s^2)" },
+                autosize: true,
               }}
             />
 
@@ -102,8 +117,8 @@ function Home() {
               className="shadow-md"
               data={[
                 {
-                  x: posFreqX,
-                  y: freqValsX,
+                  x: posFreqXc,
+                  y: freqValsXc,
                   type: "scatter",
                 },
               ]}
@@ -111,6 +126,24 @@ function Home() {
                 title: "X-Axis FFT Plot",
                 xaxis: { title: "Frequency (Hz)" },
                 yaxis: { title: "Amplitude" },
+                autosize: true,
+              }}
+            />
+
+            <Plot
+              className="shadow-md"
+              data={[
+                {
+                  x: Ts_freq,
+                  y: dom_x,
+                  type: "scatter",
+                },
+              ]}
+              layout={{
+                title: "Dominant Freq Plot X-Axis",
+                xaxis: { title: "Timestamp" },
+                yaxis: { title: "Frequency (Hz)" },
+                autosize: true,
               }}
             />
 
@@ -124,9 +157,10 @@ function Home() {
                 },
               ]}
               layout={{
-                title: "Y-Axis Acceleration vs Time",
+                title: "Y-Axis Acc vs Time RAW",
                 xaxis: { title: "Time (Secs)" },
                 yaxis: { title: "A-Y (m/s^2)" },
+                autosize: true,
               }}
             />
 
@@ -134,8 +168,8 @@ function Home() {
               className="shadow-md"
               data={[
                 {
-                  x: posFreqY,
-                  y: freqValsY,
+                  x: posFreqYc,
+                  y: freqValsYc,
                   type: "scatter",
                 },
               ]}
@@ -143,6 +177,24 @@ function Home() {
                 title: "Y-Axis FFT Plot",
                 xaxis: { title: "Frequency (Hz)" },
                 yaxis: { title: "Amplitude" },
+                autosize: true,
+              }}
+            />
+
+            <Plot
+              className="shadow-md"
+              data={[
+                {
+                  x: Ts_freq,
+                  y: dom_y,
+                  type: "scatter",
+                },
+              ]}
+              layout={{
+                title: "Dominant Freq Plot Y-Axis",
+                xaxis: { title: "Timestamp" },
+                yaxis: { title: "Frequency (Hz)" },
+                autosize: true,
               }}
             />
 
@@ -156,9 +208,10 @@ function Home() {
                 },
               ]}
               layout={{
-                title: "Z-Axis Acceleration vs Time",
+                title: "Z-Axis Acc vs Time RAW",
                 xaxis: { title: "Time (Secs)" },
                 yaxis: { title: "A-Z (m/s^2)" },
+                autosize: true,
               }}
             />
 
@@ -166,8 +219,8 @@ function Home() {
               className="shadow-md"
               data={[
                 {
-                  x: posFreqZ,
-                  y: freqValsZ,
+                  x: posFreqZc,
+                  y: freqValsZc,
                   type: "scatter",
                 },
               ]}
@@ -175,6 +228,24 @@ function Home() {
                 title: "Z-Axis FFT Plot",
                 xaxis: { title: "Frequency (Hz)" },
                 yaxis: { title: "Amplitude" },
+                autosize: true,
+              }}
+            />
+
+            <Plot
+              className="shadow-md"
+              data={[
+                {
+                  x: Ts_freq,
+                  y: dom_z,
+                  type: "scatter",
+                },
+              ]}
+              layout={{
+                title: "Dominant Freq Plot Z-Axis",
+                xaxis: { title: "Timestamp" },
+                yaxis: { title: "Frequency (Hz)" },
+                autosize: true,
               }}
             />
           </div>
